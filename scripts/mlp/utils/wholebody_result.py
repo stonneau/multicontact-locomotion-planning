@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 class Result:
     
     ### This class store discretized data points, the time step can be accessed with res.dt. 
@@ -65,7 +66,7 @@ class Result:
         if cs:
             self.phases_intervals = self.buildPhasesIntervals(cs) #Correspondence between the contact phases and the indexes of discretized points in phase_intervals. This field have the same length as the number of contact phases in the motion, and each element is a range of Id.    
         else :
-            print "Result constructor called without contactSequence object, phase_interval member not initialized"
+            print ("Result constructor called without contactSequence object, phase_interval member not initialized")
      
     # By definition of a contact sequence, at the state at the transition time between two contact phases
     # belong to both contact phases
@@ -172,19 +173,30 @@ class Result:
         if not os.path.exists(path):
             os.makedirs(path)
         filename = path+"/"+name       
-        np.savez_compressed(filename,N=self.N,nq=self.nq,nv=self.nv,nu = self.nu,dt=self.dt,t_t=self.t_t,
-                 q_t=self.q_t,dq_t=self.dq_t,ddq_t=self.ddq_t,tau_t=self.tau_t,
-                 c_t=self.c_t,dc_t=self.dc_t,ddc_t=self.ddc_t,L_t=self.L_t,dL_t=self.dL_t,
-                 c_reference=self.c_reference,dc_reference=self.dc_reference,ddc_reference=self.ddc_reference,
-                 L_reference=self.L_reference,dL_reference=self.dL_reference,
-                 wrench_t=self.wrench_t,zmp_t=self.zmp_t,wrench_reference=self.wrench_reference,zmp_reference=self.zmp_reference,
-                 waist_orientation_reference=self.waist_orientation_reference,d_waist_orientation_reference=self.d_waist_orientation_reference,dd_waist_orientation_reference=self.dd_waist_orientation_reference,
-                 eeNames=self.eeNames,contact_forces=self.contact_forces,contact_normal_force=self.contact_normal_force,
-                 effector_trajectories=self.effector_trajectories,d_effector_trajectories=self.d_effector_trajectories,dd_effector_trajectories=self.dd_effector_trajectories,
-                 effector_references=self.effector_references,d_effector_references=self.d_effector_references,dd_effector_references=self.dd_effector_references,
-                 contact_activity=self.contact_activity,phases_intervals=self.phases_intervals)
+        # ~ np.savez_compressed(filename,N=self.N,nq=self.nq,nv=self.nv,nu = self.nu,dt=self.dt,t_t=self.t_t,
+                 # ~ q_t=self.q_t,dq_t=self.dq_t,ddq_t=self.ddq_t,tau_t=self.tau_t,
+                 # ~ c_t=self.c_t,dc_t=self.dc_t,ddc_t=self.ddc_t,L_t=self.L_t,dL_t=self.dL_t,
+                 # ~ c_reference=self.c_reference,dc_reference=self.dc_reference,ddc_reference=self.ddc_reference,
+                 # ~ L_reference=self.L_reference,dL_reference=self.dL_reference,
+                 # ~ wrench_t=self.wrench_t,zmp_t=self.zmp_t,wrench_reference=self.wrench_reference,zmp_reference=self.zmp_reference,
+                 # ~ waist_orientation_reference=self.waist_orientation_reference,d_waist_orientation_reference=self.d_waist_orientation_reference,dd_waist_orientation_reference=self.dd_waist_orientation_reference,
+                 # ~ eeNames=self.eeNames,contact_forces=self.contact_forces,contact_normal_force=self.contact_normal_force,
+                 # ~ effector_trajectories=self.effector_trajectories,d_effector_trajectories=self.d_effector_trajectories,dd_effector_trajectories=self.dd_effector_trajectories,
+                 # ~ effector_references=self.effector_references,d_effector_references=self.d_effector_references,dd_effector_references=self.dd_effector_references,
+                 # ~ contact_activity=self.contact_activity,phases_intervals=self.phases_intervals, protocol=2)
+        f =  pickle.dump({'N':self.N,'nq':self.nq,'nv':self.nv,'nu' : self.nu,'dt':self.dt,'t_t':self.t_t,
+                 'q_t':self.q_t,'dq_t':self.dq_t,'ddq_t':self.ddq_t,'tau_t':self.tau_t,
+                 'c_t':self.c_t,'dc_t':self.dc_t,'ddc_t':self.ddc_t,'L_t':self.L_t,'dL_t':self.dL_t,
+                 'c_reference':self.c_reference,'dc_reference':self.dc_reference,'ddc_reference':self.ddc_reference,
+                 'L_reference':self.L_reference,'dL_reference':self.dL_reference,
+                 'wrench_t':self.wrench_t,'zmp_t':self.zmp_t,'wrench_reference':self.wrench_reference,'zmp_reference':self.zmp_reference,
+                 'waist_orientation_reference':self.waist_orientation_reference,'d_waist_orientation_reference':self.d_waist_orientation_reference,'dd_waist_orientation_reference':self.dd_waist_orientation_reference,
+                 'eeNames':self.eeNames,'contact_forces':self.contact_forces,'contact_normal_force':self.contact_normal_force,
+                 'effector_trajectories':self.effector_trajectories,'d_effector_trajectories':self.d_effector_trajectories,'dd_effector_trajectories':self.dd_effector_trajectories,
+                 'effector_references':self.effector_references,'d_effector_references':self.d_effector_references,'dd_effector_references':self.dd_effector_references,
+                 'contact_activity':self.contact_activity,'phases_intervals':self.phases_intervals}, open(filename, "wb" ), protocol=2)
         
-        print "Results exported to ",filename
+        print ("Results exported to ",filename)
         
     def qAtT(self,t):
         k = int(round(t/self.dt))
