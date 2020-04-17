@@ -127,6 +127,8 @@ def generate_effector_trajectory_limb_rrt_optimized(cfg,
     logger.info("t begin : %f", t_begin)
     logger.info("t end   : %f", t_end)
     q_init = q_t(t_begin)
+    print ("t_end", t_end)
+    print ("q_t.max()", q_t.max())
     q_end = q_t(t_end)
     global current_limbRRT_id
     # compute new limb-rrt path if needed:

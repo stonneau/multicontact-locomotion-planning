@@ -20,7 +20,7 @@ class Config:
 
     def __init__(self):
         ## methods setting : choose which method will be used to solve each subproblem :
-        self.contact_generation_method = "rbprm"
+        self.contact_generation_method = "load"
         self.centroidal_initGuess_method = "none"
         self.centroidal_method = "momentumopt"
         self.end_effector_initGuess_method = "bezier_predef"
@@ -102,7 +102,7 @@ class Config:
         self.USE_WP_COST = True  # use wp from the contact sequence in the cost function of the centroidal solver
 
         ## Settings for end effector :
-        self.EFF_CHECK_COLLISION = True  # After generating of whole body motion for a phase with an effector motion, check collision and joints limits for this motion and retry if invalid and if choosen method allow it
+        self.EFF_CHECK_COLLISION = False  # After generating of whole body motion for a phase with an effector motion, check collision and joints limits for this motion and retry if invalid and if choosen method allow it
         self.CHECK_DT = 0.01  # time step (in seconds) at which the (self-)collision and joints limits are tested
         self.WB_ABORT_WHEN_INVALID = False  # stop wb script when stuck with an invalid motion and return the VALID part (before the phase with collision)
         self.WB_RETURN_INVALID = not self.WB_ABORT_WHEN_INVALID and True  # stop wb script when stuck with an invalid motion and return  the computed part of motion, incuding the last INVALID phase
