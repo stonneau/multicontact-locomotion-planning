@@ -17,7 +17,7 @@ from mlp.utils.util import rotationFromNormal
 from mlp.viewer.display_tools import initScene, displaySteppingStones
 from pinocchio.utils import matrixToRpy
 from pinocchio import Quaternion, SE3
-from hpp.corbaserver.rbprm.tools.surfaces_from_path import getSurfacesFromGuideContinuous
+from hpp.corbaserver.rbprm.tools.surfaces_from_path import *
 import random
 from mlp.utils.requirements import Requirements
 import numpy as np
@@ -115,6 +115,158 @@ def realIdxFootId(limbId, footId):
         return footId -1
     return footId
 
+    
+
+def get_potential_surfaces_and_rotations(planner, pId, viewer, step, useIntersection, max_yaw, max_surface_area, gait):
+    """
+    Get the rotation matrix and surface condidates for each configuration in configs
+    :param robot: an rbprm robot
+    :param configs: a list of successive configurations of the robot
+    :param gait: a list of successive moving step indices
+    :return: R a list of rotation matrices and a list of surface candidates
+    """
+    
+    robot = planner.rbprmBuilder
+    LIMBS, urdfROMFilenames = robot.urdfROMFilenames()
+    ps = planner.ps
+    afftool = planner.afftool
+    
+    pathLength = ps.pathLength(pId)  #length of the path
+    discretizationStep = 0.01  # step at which we check the colliding surfaces
+    
+    
+    end = False
+    i = 0
+    t = -discretizationStep
+    current_phase_end = step
+    q_prev = ps.configAtParam(pId, 0)
+    q = q_prev[::]
+    configs = []
+    configs.append(q)
+    while not end:  # for all the path
+        #print "Looking for surfaces for phase "+str(len(seqs))+" for t in ["+str(t+discretizationStep)+" ; "+str(current_phase_end)+" ] "
+        rot_valid = True
+        while t < current_phase_end and rot_valid:  # get the names of all the surfaces that the rom collide while moving from current_phase_end-step to current_phase_end
+            t += discretizationStep
+            q = ps.configAtParam(pId, t)
+            if not isYawVariationsInsideBounds(q_prev, q, max_yaw):
+                print (" messing up SOM STUUUUUUUUUFFFFFFFFFFFFFFFFFFFF")
+                #print "yaw variation out of bounds, try to reduce the time step : "
+                rot_valid = False
+                t -= discretizationStep
+                q = ps.configAtParam(pId, t)
+                while isYawVariationsInsideBounds(q_prev, q, max_yaw):
+                    t += 0.0001
+                    q = ps.configAtParam(pId, t)
+        # increase values for next phase
+        q_prev = q[::]
+        configs.append(q)
+        i += 1
+        if t >= (pathLength - discretizationStep / 2.):
+            end = True
+        t -= discretizationStep  # because we want the first iteration of the next phase to test the same t as the last iter of this phase
+        current_phase_end = t + step
+        if current_phase_end >= pathLength:
+            current_phase_end = pathLength
+    # end for all the guide path
+    #get rotation matrix of the root at each discretization step
+    R = getRotationMatrixFromConfigs(configs)
+    
+    
+    all_surfaces = getAllSurfaces(afftool)
+    all_names = afftool.getAffRefObstacles("Support")  # id in names and surfaces match
+    print (" ALLL NAMES ", all_names) 
+    surfaces_dict = dict(zip(all_names, all_surfaces))  # map surface names to surface points
+        
+    surfaces_list = []
+    for id, config in enumerate(configs):
+        stance_feet = np.nonzero(gait[id % len(gait)] == 1)[0]
+        previous_swing_feet = np.nonzero(gait[(id-1) % len(gait)] == 0)[0]
+        moving_feet = stance_feet[np.in1d(stance_feet, previous_swing_feet, assume_unique=True)]
+        limbs = np.array(LIMBS)[moving_feet]
+        
+        foot_surfaces = []
+        for limb in limbs:
+            surfaces = []
+            surfaces_names = robot.clientRbprm.rbprm.getCollidingObstacleAtConfig(config, limb)
+            if len(surfaces_names) == 0:
+                surfaces_names = all_names #REMOVE ME
+            print ("names ",  surfaces_names)
+            for name in surfaces_names:
+                surfaces.append(surfaces_dict[name][0])
+                
+            
+            if useIntersection:
+                try: 
+                    intersections = robot.getContactSurfacesAtConfig(config, limb)
+                    for j, intersection in enumerate(intersections):
+                        if area(intersection) < max_surface_area:
+                            surfaces.append(surfaces_dict[surfaces_names[j]][0])
+                        else:
+                            surfaces.append(intersection)
+                except:                    
+                    for name in surfaces_names:
+                        surfaces.append(surfaces_dict[name][0])
+            else:
+                for name in surfaces_names:
+                    surfaces.append(surfaces_dict[name][0])
+
+            # Sort and then convert to array
+            surfaces = sorted(surfaces)
+            print (" SURFACES ", len(surfaces))
+            surfaces_array = []
+            for surface in surfaces:
+                surfaces_array.append(np.array(surface).T)
+                print ("VIEWER ", viewer)
+                if viewer:
+                    displaySurfaceFromPoints(viewer, surface, [0, 0, 1, 1])
+
+            # Add to surfaces list
+            foot_surfaces.append(surfaces_array)
+        surfaces_list.append(foot_surfaces)
+
+    
+
+    # ~ surfaces_list = []
+    # ~ n_gait = len(gait)
+    # ~ for id, config in enumerate(configs):
+        # ~ print (" gait ",gait )
+        # ~ print (" gId ",id )
+        # ~ print (" gait[id % 4] ",gait[id % n_gait] )
+    
+        # ~ current_gait = gait[id % n_gait]
+        # ~ non_zeros = np.nonzero(current_gait)
+        # ~ print ("non_zeros ", non_zeros)
+        # ~ limbs =  [LIMBS[el] for el in non_zeros]
+        
+        # ~ print ("limbs ", limbs)
+
+        # ~ surfaces = []
+        # ~ surfaces_names = robot.clientRbprm.rbprm.getCollidingObstacleAtConfig(config.tolist(), limb)
+        # ~ if USE_INTERSECTIONS:
+            # ~ intersections = robot.getContactSurfacesAtConfig(config.tolist(), limb)
+            # ~ for j, intersection in enumerate(intersections):
+                # ~ if area(intersection) < MAX_SURFACE:
+                    # ~ surfaces.append(surfaces_dict[surfaces_names[j]][0])
+                # ~ else:
+                    # ~ surfaces.append(intersection)
+        # ~ else:
+            # ~ for name in surfaces_names:
+                # ~ surfaces.append(surfaces_dict[name][0])
+
+        # ~ # Sort and then convert to array
+        # ~ surfaces = sorted(surfaces)
+        # ~ surfaces_array = []
+        # ~ for surface in surfaces:
+            # ~ surfaces_array.append(np.array(surface).T)
+            # ~ if viewer:
+                # ~ displaySurfaceFromPoints(viewer, surface, [0, 0, 1, 1])
+
+        # ~ # Add to surfaces list
+        # ~ surfaces_list.append(surfaces_array)
+
+    return R, surfaces_list
+
 
 def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final_contacts = None):
     """
@@ -148,7 +300,7 @@ def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final
     logger.info("Final contacts : %s", final_contacts)
     #  Extract candidate surfaces and root rotation from the guide planning
     success = False
-    maxIt = 50
+    maxIt = 10
     it = 0
     defaultStep = cfg.GUIDE_STEP_SIZE
     step = defaultStep
@@ -177,15 +329,26 @@ def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final
         viewer = planner.v
         if not hasattr(viewer, "client"):
             viewer = None
-        R, surfaces = getSurfacesFromGuideContinuous(planner.rbprmBuilder,
-                                                     planner.ps,
-                                                     planner.afftool,
-                                                     pathId,
-                                                     viewer if display_surfaces else None,
-                                                     step,
-                                                     useIntersection=cfg.SL1M_USE_INTERSECTION,
-                                                     max_yaw=cfg.GUIDE_MAX_YAW,
-                                                     max_surface_area=cfg.MAX_SURFACE_AREA)
+        # ~ R, surfaces = getSurfacesFromGuideContinuous(planner.rbprmBuilder,
+                                                     # ~ planner.ps,
+                                                     # ~ planner.afftool,
+                                                     # ~ pathId,
+                                                     # ~ viewer if display_surfaces else None,
+                                                     # ~ step,
+                                                     # ~ useIntersection=cfg.SL1M_USE_INTERSECTION,
+                                                     # ~ max_yaw=cfg.GUIDE_MAX_YAW,
+                                                     # ~ max_surface_area=cfg.MAX_SURFACE_AREA)
+        #adapting surfaces to new gait
+        # ~ surfaces = __adapt_surfaces_to_gait(surfaces,cfg.SL1M_GAIT)
+        R, surfaces = get_potential_surfaces_and_rotations( planner,
+                                                            pathId,
+                                                            viewer if display_surfaces else None,
+                                                            step,
+                                                            useIntersection=cfg.SL1M_USE_INTERSECTION,
+                                                            max_yaw=cfg.GUIDE_MAX_YAW,
+                                                            max_surface_area=cfg.MAX_SURFACE_AREA,
+                                                            gait = cfg.SL1M_GAIT)
+        
         pb = Problem(cfg.Robot, suffix_com= cfg.SL1M_SUFFIX_COM_CONSTRAINTS, suffix_feet=cfg.SL1M_SUFFIX_FEET_CONSTRAINTS, limb_names=cfg.SL1M_FEET_NAME_FOR_CONSTRAINTS)
         pb.generate_problem(R, surfaces[:], cfg.SL1M_GAIT, initial_contacts, np.array(planner.q_init[0:3])) #TODO COM position not used
         try:

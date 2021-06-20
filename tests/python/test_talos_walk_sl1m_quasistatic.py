@@ -12,7 +12,7 @@ class TestTalosWalkSl1mQuasistatic(unittest.TestCase):
         cfg = Config()
         cfg.load_scenario_config("talos_flatGround_quasiStatic")
         cfg.contact_generation_method = "sl1m"
-        cfg.centroidal_method = "quasistatic"
+        # ~ cfg.centroidal_method = "quasistatic"
         cfg.IK_store_centroidal = True
         cfg.IK_store_zmp = True
         cfg.IK_store_effector = True
