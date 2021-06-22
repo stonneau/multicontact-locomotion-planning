@@ -89,6 +89,7 @@ def foot_pose_from_guide(Robot, root_pos):
     :return: a List (of size num_effector),
     each element is an array representing the effector 3D position in the world frame
     """
+    print ("Robot ", Robot)
     return [array(root_pos[0:3]) + Robot.dict_ref_effector_from_root[limb_name] +
             Robot.dict_offset[Robot.dict_limb_joint[limb_name]].translation
             for limb_name in Robot.limbs_names]
@@ -150,7 +151,6 @@ def get_potential_surfaces_and_rotations(planner, pId, viewer, step, useIntersec
             t += discretizationStep
             q = ps.configAtParam(pId, t)
             if not isYawVariationsInsideBounds(q_prev, q, max_yaw):
-                print (" messing up SOM STUUUUUUUUUFFFFFFFFFFFFFFFFFFFF")
                 #print "yaw variation out of bounds, try to reduce the time step : "
                 rot_valid = False
                 t -= discretizationStep
@@ -175,7 +175,6 @@ def get_potential_surfaces_and_rotations(planner, pId, viewer, step, useIntersec
     
     all_surfaces = getAllSurfaces(afftool)
     all_names = afftool.getAffRefObstacles("Support")  # id in names and surfaces match
-    print (" ALLL NAMES ", all_names) 
     surfaces_dict = dict(zip(all_names, all_surfaces))  # map surface names to surface points
         
     surfaces_list = []
@@ -191,7 +190,6 @@ def get_potential_surfaces_and_rotations(planner, pId, viewer, step, useIntersec
             surfaces_names = robot.clientRbprm.rbprm.getCollidingObstacleAtConfig(config, limb)
             if len(surfaces_names) == 0:
                 surfaces_names = all_names #REMOVE ME
-            print ("names ",  surfaces_names)
             for name in surfaces_names:
                 surfaces.append(surfaces_dict[name][0])
                 
@@ -213,57 +211,15 @@ def get_potential_surfaces_and_rotations(planner, pId, viewer, step, useIntersec
 
             # Sort and then convert to array
             surfaces = sorted(surfaces)
-            print (" SURFACES ", len(surfaces))
             surfaces_array = []
             for surface in surfaces:
                 surfaces_array.append(np.array(surface).T)
-                print ("VIEWER ", viewer)
                 if viewer:
                     displaySurfaceFromPoints(viewer, surface, [0, 0, 1, 1])
 
             # Add to surfaces list
             foot_surfaces.append(surfaces_array)
         surfaces_list.append(foot_surfaces)
-
-    
-
-    # ~ surfaces_list = []
-    # ~ n_gait = len(gait)
-    # ~ for id, config in enumerate(configs):
-        # ~ print (" gait ",gait )
-        # ~ print (" gId ",id )
-        # ~ print (" gait[id % 4] ",gait[id % n_gait] )
-    
-        # ~ current_gait = gait[id % n_gait]
-        # ~ non_zeros = np.nonzero(current_gait)
-        # ~ print ("non_zeros ", non_zeros)
-        # ~ limbs =  [LIMBS[el] for el in non_zeros]
-        
-        # ~ print ("limbs ", limbs)
-
-        # ~ surfaces = []
-        # ~ surfaces_names = robot.clientRbprm.rbprm.getCollidingObstacleAtConfig(config.tolist(), limb)
-        # ~ if USE_INTERSECTIONS:
-            # ~ intersections = robot.getContactSurfacesAtConfig(config.tolist(), limb)
-            # ~ for j, intersection in enumerate(intersections):
-                # ~ if area(intersection) < MAX_SURFACE:
-                    # ~ surfaces.append(surfaces_dict[surfaces_names[j]][0])
-                # ~ else:
-                    # ~ surfaces.append(intersection)
-        # ~ else:
-            # ~ for name in surfaces_names:
-                # ~ surfaces.append(surfaces_dict[name][0])
-
-        # ~ # Sort and then convert to array
-        # ~ surfaces = sorted(surfaces)
-        # ~ surfaces_array = []
-        # ~ for surface in surfaces:
-            # ~ surfaces_array.append(np.array(surface).T)
-            # ~ if viewer:
-                # ~ displaySurfaceFromPoints(viewer, surface, [0, 0, 1, 1])
-
-        # ~ # Add to surfaces list
-        # ~ surfaces_list.append(surfaces_array)
 
     return R, surfaces_list
 
@@ -315,11 +271,11 @@ def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final
     solveFun = None  
     if cfg.SL1M_USE_MIP:
         def f(pb, surfaces):
-            return solve_MIP(pb, surfaces, costs={"final_com" : [1., planner.q_goal[0:3]]})
+            return solve_MIP(pb, com=cfg.SL1M_USE_COM, costs={"final_com" : [1., planner.q_goal[0:3]]})
         solveFun = f
     else:
         def f(pb, surfaces):
-            return solve_L1_combinatorial(pb, surfaces, costs={"final_com" : [1., planner.q_goal[0:3]]})
+            return solve_L1_combinatorial(pb, com=cfg.SL1M_USE_COM, costs={"final_com" : [1., planner.q_goal[0:3]]})
         solveFun = f
         
     
@@ -329,17 +285,7 @@ def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final
         viewer = planner.v
         if not hasattr(viewer, "client"):
             viewer = None
-        # ~ R, surfaces = getSurfacesFromGuideContinuous(planner.rbprmBuilder,
-                                                     # ~ planner.ps,
-                                                     # ~ planner.afftool,
-                                                     # ~ pathId,
-                                                     # ~ viewer if display_surfaces else None,
-                                                     # ~ step,
-                                                     # ~ useIntersection=cfg.SL1M_USE_INTERSECTION,
-                                                     # ~ max_yaw=cfg.GUIDE_MAX_YAW,
-                                                     # ~ max_surface_area=cfg.MAX_SURFACE_AREA)
-        #adapting surfaces to new gait
-        # ~ surfaces = __adapt_surfaces_to_gait(surfaces,cfg.SL1M_GAIT)
+            
         R, surfaces = get_potential_surfaces_and_rotations( planner,
                                                             pathId,
                                                             viewer if display_surfaces else None,
@@ -350,6 +296,13 @@ def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final
                                                             gait = cfg.SL1M_GAIT)
         
         pb = Problem(cfg.Robot, suffix_com= cfg.SL1M_SUFFIX_COM_CONSTRAINTS, suffix_feet=cfg.SL1M_SUFFIX_FEET_CONSTRAINTS, limb_names=cfg.SL1M_FEET_NAME_FOR_CONSTRAINTS)
+        
+        from pickle import dump
+        
+        data = [cfg.Robot, cfg.SL1M_SUFFIX_COM_CONSTRAINTS, cfg.SL1M_SUFFIX_FEET_CONSTRAINTS, cfg.SL1M_FEET_NAME_FOR_CONSTRAINTS, R, surfaces, cfg.SL1M_GAIT, initial_contacts, np.array(planner.q_init[0:3])]
+        with open("data.pickle", "wb") as f:
+            dump(data,f)
+        
         pb.generate_problem(R, surfaces[:], cfg.SL1M_GAIT, initial_contacts, np.array(planner.q_init[0:3])) #TODO COM position not used
         try:
             resultData = solveFun(pb, surfaces)
@@ -359,16 +312,7 @@ def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final
         it += 1
     if not success:
         raise RuntimeError("planner always fail.")
-    
-    
-    # ~ import sl1m.tools.plot_tools as plot
-    # ~ from mpl_toolkits.mplot3d import Axes3D
-    # ~ ax = plot.draw_scene([], cfg.SL1M_GAIT)
-    # ~ plot.plot_initial_contacts(initial_contacts, ax=ax)
-    # ~ if(success):
-        # ~ plot.plot_planner_result(resultData.coms, resultData.moving_foot_pos, resultData.all_feet_pos, ax, True)
-    # ~ else:
-        # ~ plt.show(block=False)
+    resultData.initial_contacts = initial_contacts 
     return pathId, pb, resultData 
 
 
@@ -436,6 +380,7 @@ def generate_contact_sequence_sl1m(cfg):
     #RF,root_init,pb, coms, footpos, allfeetpos, res = runLPScript(cfg)
     RF, root_init, root_end, pb, resultData = runLPFromGuideScript(cfg)
     allfeetpos = resultData.all_feet_pos
+    # ~ allfeetpos = [resultData.initial_contacts]; allfeetpos.append(resultData.all_feet_pos)
     multicontact_api.switchToNumpyArray()
     # load scene and robot
     fb, v = initScene(cfg.Robot, cfg.ENV_NAME, True)
@@ -535,7 +480,7 @@ def build_cs_from_sl1m(fb, q_ref, root_end, pb, RF, allfeetpos, use_orientation,
             raise NotImplementedError("A phase in the output of SL1M do not have all the effectors in contact.")
         switch = False # True if a repostionning have been detected
         for k, pos in enumerate(eff_placements):
-            if norm(pos - previous_eff_placements[k]) > 1e-3:
+            if pos is not None and (previous_eff_placements[k] is None or norm(pos - previous_eff_placements[k]) > 1e-3):
                 if switch:
                     raise NotImplementedError("Several contact changes between two adjacent phases in SL1M output")
                 switch = True
@@ -591,4 +536,5 @@ def build_cs_from_sl1m(fb, q_ref, root_end, pb, RF, allfeetpos, use_orientation,
     p_final = cs.contactPhases[-1]
     p_final.c_final = computeCenterOfSupportPolygonFromPhase(p_final, fb.DEFAULT_COM_HEIGHT)
     p_final.c_init = p_final.c_final
+    print ("num phases ", len(cs.contactPhases))
     return cs

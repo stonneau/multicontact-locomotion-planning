@@ -123,3 +123,4 @@ SL1M_USE_MIP=True
 SL1M_GAIT = [np.array([0, 1]), np.array([1, 0])]
 DISPLAY_SL1M_SURFACES = True
 SL1M_USE_INTERSECTION = True
+SL1M_USE_COM = True
