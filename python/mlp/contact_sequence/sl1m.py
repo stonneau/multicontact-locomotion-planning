@@ -295,7 +295,11 @@ def solve(planner, cfg, display_surfaces = False, initial_contacts = None, final
                                                             max_surface_area=cfg.MAX_SURFACE_AREA,
                                                             gait = cfg.SL1M_GAIT)
         
-        pb = Problem(cfg.Robot, suffix_com= cfg.SL1M_SUFFIX_COM_CONSTRAINTS, suffix_feet=cfg.SL1M_SUFFIX_FEET_CONSTRAINTS, limb_names=cfg.SL1M_FEET_NAME_FOR_CONSTRAINTS)
+        robot = cfg.Robot
+        if cfg.SL1M_CONSTRAINT_PATHS is not None:
+            robot = None
+        
+        pb = Problem(robot, suffix_com= cfg.SL1M_SUFFIX_COM_CONSTRAINTS, suffix_feet=cfg.SL1M_SUFFIX_FEET_CONSTRAINTS, limb_names=cfg.SL1M_FEET_NAME_FOR_CONSTRAINTS, other_names = cfg.SL1M_OTHER_NAMES, constraint_paths= cfg.SL1M_CONSTRAINT_PATHS)
         
         from pickle import dump
         

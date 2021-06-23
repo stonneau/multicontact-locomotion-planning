@@ -7,6 +7,8 @@ except ImportError:
     raise ImportError(message)
 MASS = 30.47  # cannot retrieve it from urdf because the file is not parsed here ...
 
+import os
+
 ## weight and gains used by TSID
 IK_dt = 0.0025  # 400Hz
 fMin = 1.0  # minimum normal force
@@ -62,8 +64,6 @@ p_max = 0.2
 EFF_T_PREDEF = 0.
 
 GUIDE_STEP_SIZE = 0.6
-SL1M_USE_MIP = True
-SL1M_USE_INTERSECTION = False
 
 
 import numpy as np
@@ -73,3 +73,14 @@ for i in range(4):
     masks_posture[2 + i * 3] = 1.  # knees
 
 IK_REFERENCE_CONFIG = np.array(Robot.referenceConfig)
+SL1M_FEET_NAME_FOR_CONSTRAINTS = ["RH", "RF", "LH", "LF"]
+SL1M_SUFFIX_COM_CONSTRAINTS  =   "leg_effector_frame_quasi_static_reduced.obj"
+SL1M_SUFFIX_FEET_CONSTRAINTS =   "leg_reduced.obj"
+SL1M_OTHER_NAMES =    ['RH_ADAPTER_TO_FOOT', 'RF_ADAPTER_TO_FOOT', 'LH_ADAPTER_TO_FOOT', 'LF_ADAPTER_TO_FOOT']
+SL1M_USE_MIP=True
+SL1M_GAIT = [np.array([1, 1,1,1]),np.array([0, 1,1,1]),np.array([1, 1,1,1]),np.array([1, 0,1,1]),np.array([1, 1,1,1]),np.array([1, 1,0,1]),np.array([1, 1,1,1]),np.array([1, 1,1,0]),]
+DISPLAY_SL1M_SURFACES = True
+SL1M_USE_INTERSECTION = True
+SL1M_USE_COM = True
+SL1M_CONSTRAINT_PATHS = [os.environ["INSTALL_HPP_DIR"] + "/share/anymal-rbprm/com_inequalities/feet_quasi_flat/anymal_",
+         os.environ["INSTALL_HPP_DIR"] + "/share/anymal-rbprm/relative_effector_positions/anymal_"]

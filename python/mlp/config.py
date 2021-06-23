@@ -20,9 +20,9 @@ class Config:
 
     def __init__(self):
         ## methods setting : choose which method will be used to solve each subproblem :
-        self.contact_generation_method = "rbprm"
+        self.contact_generation_method = "sl1m"
         self.centroidal_initGuess_method = "none"
-        self.centroidal_method = "momentumopt"
+        self.centroidal_method = "geometric"
         self.end_effector_initGuess_method = "bezier_predef"
         self.end_effector_method = "limb_rrt_optimized"
         self.wholebody_method = "tsid"
@@ -43,6 +43,7 @@ class Config:
         self.CONTACT_SEQUENCE_PATH = self.OUTPUT_DIR + "/contact_sequences"
 
         self.STATUS_FILENAME = self.OUTPUT_DIR + "/infos.log"
+        print ("STATUS_FILENAME = ",self.STATUS_FILENAME)
         self.EXPORT_PATH = self.OUTPUT_DIR + "/export"
         # if absolute script path is given for rbprm, this path is prepended
         self.RBPRM_SCRIPT_PATH = "hpp.corbaserver.rbprm.scenarios"
